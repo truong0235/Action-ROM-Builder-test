@@ -1,0 +1,106 @@
+name: Build Tremble Experiment repo
+
+
+on:
+  workflow_dispatch:
+    inputs:
+      TREMBLE_URL:
+        description: 'TREMBLE_URL'
+        required: true
+        default: 'https://github.com/TrebleDroid/treble_experimentations'
+      MANIFEST_BRANCH:
+        description: 'MANIFEST_BRANCH'
+        required: true
+        default: 'master'
+      ROM_NAME:
+        description: 'ROM_NAME'
+        required: true
+        default: 'lineage_os'
+      ANDROID_VERSION:
+        description: 'Android_VERSION'
+        required: true
+        default: 'android_11'
+      CUSTOM_BUILD:
+        description: 'ab?, gapps, vkdg?'
+        required: false
+        default: 'arm64-ab-go-nosu'
+      
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Check if sender is repository owner
+      if: github.event.repository.owner.login == github.event.sender.login
+      run: |
+        echo "Sender is the repository owner"
+    - name: Not the repository owner
+      if: github.event.repository.owner.login != github.event.sender.login
+      run: |
+        echo "Sender is not the repository owner"
+        exit 1
+
+    - name: Cleanup
+      uses: rokibhasansagar/slimhub_actions@main
+
+    - name: Initialize workspace
+      run: |
+        mkdir workspace
+        mkdir workspace/result
+        cd workspace
+        echo "workspace-folder=$(pwd)" >> $GITHUB_OUTPUT
+      id: pwd
+
+    - name: Prepare the build environment
+      run: |
+        sudo apt install git aria2 -y
+        export JAVA_HOME=$(readlink -f $(which java))
+        # git clone ${{github.event.inputs.TREMBLE_URL}} -b ${{github.event.inputs.REP}}  
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
+    - name: Clone phh repo
+      run: |
+        cd ${{ steps.pwd.outputs.workspace-folder }}
+        mkdir tremble
+        cd tremble
+        repo init -u ${{ github.event.inputs.TREMBLE_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }} --git-lfs
+        repo sync
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
+    - name: Set Swap Space
+      uses: pierotofy/set-swap-space@master
+      with:
+        swap-size-gb: 12
+
+    - name: Build ROM
+      run: |
+        cd ${{ steps.pwd.outputs.workspace-folder }}/result
+        bash ../tremble/build-rom.sh ${{ github.event.inputs.ANDROID_VERSION }} $ {{ github.event.inputs.CUSTOM_BUILD }}
+        # export USE_CCACHE=1
+        # export CCACHE_DIR=ccache/
+        # ccache -M 50G
+        # lunch ${{ github.event.inputs.MAKEFILE_NAME }}
+        m otapackage
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+      continue-on-error: true
+
+    - name: Check the output directory before uploading
+      run: |
+        ls -al ${{ steps.pwd.outputs.workspace-folder }}/result
+        echo
+        # ls -al ${{ steps.pwd.outputs.workspace-folder }}/result
+
+    - name: Upload to Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          ${{ steps.pwd.outputs.workspace-folder }}/lineage/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*.zip
+        name: ${{ github.event.inputs.DEVICE_NAME }}-${{ github.run_id }}
+        tag_name: ${{ github.run_id }}
+        body: |
+          Manifest: ${{ github.event.inputs.MANIFEST_BRANCH }}
+          Device: ${{ github.event.inputs.DEVICE_NAME }}
+          Target: ${{ github.event.inputs.BUILD_TARGET }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
