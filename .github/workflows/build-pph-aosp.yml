@@ -41,8 +41,8 @@ jobs:
         echo "Sender is not the repository owner"
         exit 1
 
-    # - name: Cleanup
-    #   uses: rokibhasansagar/slimhub_actions@main
+    - name: Cleanup
+      uses: rokibhasansagar/slimhub_actions@main
 
     - name: Initialize workspace
       run: |
@@ -64,8 +64,8 @@ jobs:
         cd ${{ steps.pwd.outputs.workspace-folder }}
         mkdir tremble
         cd tremble
-        repo init -u ${{ github.event.inputs.TREMBLE_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }} --git-lfs
-        repo sync
+        git init -u ${{ github.event.inputs.TREMBLE_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }} --git-lfs
+        # git sync
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Set Swap Space
@@ -95,12 +95,13 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          ${{ steps.pwd.outputs.workspace-folder }}/lineage/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/*.zip
-        name: ${{ github.event.inputs.DEVICE_NAME }}-${{ github.run_id }}
+          ${{ steps.pwd.outputs.workspace-folder }}/result/*.img
+        name: ${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.CUSTOM_BUILD }}${{ github.run_id }}
         tag_name: ${{ github.run_id }}
         body: |
-          Manifest: ${{ github.event.inputs.MANIFEST_BRANCH }}
-          Device: ${{ github.event.inputs.DEVICE_NAME }}
-          Target: ${{ github.event.inputs.BUILD_TARGET }}
+          # Manifest: ${{ github.event.inputs.MANIFEST_BRANCH }}
+          # Device: ${{ github.event.inputs.DEVICE_NAME }}
+          # Target: ${{ github.event.inputs.BUILD_TARGET }}
+          testing
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
