@@ -62,9 +62,7 @@ jobs:
     - name: Clone phh repo
       run: |
         cd ${{ steps.pwd.outputs.workspace-folder }}
-        mkdir tremble
-        cd tremble
-        git init -u ${{ github.event.inputs.TREMBLE_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }} --git-lfs
+        git clone -u ${{ github.event.inputs.TREMBLE_URL }} -b ${{ github.event.inputs.MANIFEST_BRANCH }} tremble
         # git sync
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
