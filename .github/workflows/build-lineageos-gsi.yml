@@ -23,16 +23,6 @@ jobs:
     permissions:
       contents: write
     steps:
-    - name: Check if sender is repository owner
-      if: github.event.repository.owner.login == github.event.sender.login
-      run: |
-        echo "Sender is the repository owner"
-    - name: Not the repository owner
-      if: github.event.repository.owner.login != github.event.sender.login
-      run: |
-        echo "Sender is not the repository owner"
-        exit 1
-
     - name: Free disk space
       run: |
         sudo rm -rf /usr/local/lib/android || true
@@ -74,16 +64,16 @@ jobs:
 
     - name: Add treble manifest
       run: |
-        git clone https://github.com/phhusson/treble_manifest \
+        git clone https://github.com/TrebleDroid/treble_manifest \
           .repo/local_manifests \
           -b ${{ github.event.inputs.ANDROID_VERSION }}
         rm -f .repo/local_manifests/replace.xml
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Clone treble patches
+    - name: Download and extract treble patches
       run: |
-        git clone https://github.com/phhusson/treble_patches patches \
-          -b ${{ github.event.inputs.ANDROID_VERSION }}
+        wget -q https://github.com/TrebleDroid/treble_experimentations/releases/latest/download/patches-for-developers.zip
+        mkdir -p patches && unzip -o patches-for-developers.zip -d patches
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Sync source
@@ -94,13 +84,18 @@ jobs:
 
     - name: Apply patches
       run: |
-        bash apply-patches.sh patches
+        for patch in patches/*.patch; do
+          project_dir=$(dirname "$patch" | sed 's|patches/||')
+          if [ -d "$project_dir" ]; then
+            (cd "$project_dir" && git am "$GITHUB_WORKSPACE/$patch")
+          fi
+        done
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Generate device config
       run: |
         cd device/phh/treble
-        bash generate.sh lineage
+        bash generate.sh vendor/lineage/config/common_full_phone.mk
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Build system image
@@ -108,7 +103,7 @@ jobs:
         . build/envsetup.sh
         export USE_CCACHE=1
         export CCACHE_DIR=$(pwd)/ccache/
-        ccache -M 50G
+        ccache -M 10G
         lunch treble_arm64_bvN-userdebug
         make WITHOUT_CHECK_API=true -j$(nproc) systemimage
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
