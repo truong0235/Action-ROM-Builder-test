@@ -1,0 +1,135 @@
+name: Build LineageOS 18.1 GSI
+
+
+on:
+  workflow_dispatch:
+    inputs:
+      MANIFEST_BRANCH:
+        description: 'LineageOS branch'
+        required: true
+        default: 'lineage-18.1'
+      ANDROID_VERSION:
+        description: 'Android version for treble manifests'
+        required: true
+        default: 'android-11.0'
+      CUSTOM_BUILD:
+        description: 'GSI variant (e.g. arm64-ab-vanilla-nosu)'
+        required: true
+        default: 'arm64-ab-vanilla-nosu'
+
+jobs:
+  build:
+    runs-on: self-hosted
+    permissions:
+      contents: write
+    steps:
+    - name: Check if sender is repository owner
+      if: github.event.repository.owner.login == github.event.sender.login
+      run: |
+        echo "Sender is the repository owner"
+    - name: Not the repository owner
+      if: github.event.repository.owner.login != github.event.sender.login
+      run: |
+        echo "Sender is not the repository owner"
+        exit 1
+
+    - name: Free disk space
+      run: |
+        sudo rm -rf /usr/local/lib/android || true
+        sudo rm -rf /usr/share/dotnet || true
+        sudo rm -rf /opt/ghc || true
+        sudo rm -rf /usr/local/share/boost || true
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
+        sudo rm -rf /opt/hostedtoolcache || true
+        sudo docker system prune -af || true
+        df -h
+
+    - name: Cleanup
+      uses: rokibhasansagar/slimhub_actions@main
+
+    - name: Install dependencies
+      run: |
+        sudo apt install git aria2 ccache -y
+        sudo curl --create-dirs -L -o /usr/local/bin/repo \
+          https://storage.googleapis.com/git-repo-downloads/repo
+        sudo chmod a+rx /usr/local/bin/repo
+
+    - name: Initialize workspace
+      run: |
+        mkdir -p workspace
+        cd workspace
+        echo "workspace-folder=$(pwd)" >> $GITHUB_OUTPUT
+      id: pwd
+
+    - name: Set Swap Space
+      uses: pierotofy/set-swap-space@master
+      with:
+        swap-size-gb: 12
+
+    - name: Repo init LineageOS
+      run: |
+        repo init -u https://github.com/LineageOS/android.git \
+          -b ${{ github.event.inputs.MANIFEST_BRANCH }}
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
+    - name: Add treble manifest
+      run: |
+        git clone https://github.com/phhusson/treble_manifest \
+          .repo/local_manifests \
+          -b ${{ github.event.inputs.ANDROID_VERSION }}
+        rm -f .repo/local_manifests/replace.xml
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
+    - name: Clone treble patches
+      run: |
+        git clone https://github.com/phhusson/treble_patches patches \
+          -b ${{ github.event.inputs.ANDROID_VERSION }}
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
+    - name: Sync source
+      run: |
+        repo sync -c --no-tags --no-clone-bundle \
+          --force-sync -j$(nproc)
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
+    - name: Apply patches
+      run: |
+        bash apply-patches.sh patches
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
+    - name: Generate device config
+      run: |
+        cd device/phh/treble
+        bash generate.sh lineage
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
+    - name: Build system image
+      run: |
+        . build/envsetup.sh
+        export USE_CCACHE=1
+        export CCACHE_DIR=$(pwd)/ccache/
+        ccache -M 50G
+        lunch treble_arm64_bvN-userdebug
+        make WITHOUT_CHECK_API=true -j$(nproc) systemimage
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
+    - name: Compress system image
+      run: |
+        xz -9 -T0 -v -z \
+          out/target/product/phh_treble/system.img
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
+    - name: Upload to Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          ${{ steps.pwd.outputs.workspace-folder }}/out/target/product/phh_treble/system.img.xz
+        name: LineageOS-18.1-GSI-${{ github.run_id }}
+        tag_name: ${{ github.run_id }}
+        body: |
+          # ROM: LineageOS 18.1 GSI
+          # Variant: ${{ github.event.inputs.CUSTOM_BUILD }}
+          # Branch: ${{ github.event.inputs.MANIFEST_BRANCH }}
+          # Target: Poco C40 (frost) - arm64 A/B
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
