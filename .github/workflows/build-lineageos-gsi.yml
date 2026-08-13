@@ -84,10 +84,14 @@ jobs:
 
     - name: Apply patches
       run: |
-        for patch in patches/*.patch; do
-          project_dir=$(dirname "$patch" | sed 's|patches/||')
+        find patches -name "*.patch" -type f | sort | while read patch; do
+          project_name=$(echo "$patch" | sed 's|^patches/||; s|/[^/]*$||')
+          project_dir=$(echo "$project_name" | sed 's|^platform_||; s|_|/|g')
           if [ -d "$project_dir" ]; then
+            echo "Applying to $project_dir"
             (cd "$project_dir" && git am "$GITHUB_WORKSPACE/$patch")
+          else
+            echo "Skip $project_dir (not found)"
           fi
         done
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
