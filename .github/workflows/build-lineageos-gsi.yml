@@ -68,6 +68,10 @@ jobs:
           .repo/local_manifests \
           -b ${{ github.event.inputs.ANDROID_VERSION }}
         rm -f .repo/local_manifests/replace.xml
+        echo '<manifest>' > .repo/local_manifests/remove.xml
+        echo '  <remove-project name="packages/apps/Seedvault" />' >> .repo/local_manifests/remove.xml
+        echo '  <remove-project name="external/exfatprogs" />' >> .repo/local_manifests/remove.xml
+        echo '</manifest>' >> .repo/local_manifests/remove.xml
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Download and extract treble patches

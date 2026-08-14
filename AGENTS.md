@@ -7,9 +7,9 @@ GitHub Actions repo that builds Android custom ROMs. Fork → dispatch workflow 
 - `build-arrowos.yml` — ArrowOS. Uses `actions/setup-java@v4` (Oracle Java 22), `repo sync`, `m otapackage`.
 - `build-lineageos.yml` — LineageOS. Uses OrangeFox setup scripts. Patches known symlink bug via `sed` on `install_android_sdk.sh`.
 - `build-pph-aosp.yml` — PHH/Treble GSI. Clones `treble_experimentations`, runs `build-rom.sh`. Outputs `.img` not `.zip`.
-- `build-lineageos-gsi.yml` — LineageOS 18.1 GSI for Poco C40 (`frost`). Manual wiki-based build (not `build-rom.sh`). Builds `systemimage` only, compresses to `.img.xz`.
+- `build-lineageos-gsi.yml` — LineageOS 18.1 GSI for Poco C40 (`frost`). Clones treble manifest, applies patches from `treble_experimentations` zip, runs `generate.sh` for device config, builds `systemimage` only, compresses to `.img.xz`. No owner-only check.
 
-All: `workflow_dispatch` only, owner-only execution, 12 GB swap, 50 GB ccache.
+All: `workflow_dispatch` only, owner-only execution, 12 GB swap; ccache varies (ArrowOS/LineageOS: 50 GB, GSI: 10 GB, PHH: disabled).
 
 ## Gotchas
 - **PHH syntax error** — `build-pph-aosp.yml:77` has space in `${{ }}` for `CUSTOM_BUILD`: `$ {{ github.event.inputs.CUSTOM_BUILD }}`. Will pass empty string. Fix: remove space.
@@ -22,9 +22,12 @@ All: `workflow_dispatch` only, owner-only execution, 12 GB swap, 50 GB ccache.
 - **PHH extra `m otapackage`** — Line 82 runs `m otapackage` after `build-rom.sh` which may be redundant or conflicting.
 - **Disk space** — GitHub-hosted runners have ~14 GB. Android source needs 80+ GB. `build-lineageos-gsi.yml` runs on `ubuntu-latest` but will likely fail during repo sync or build due to insufficient space.
 - **MediaTek GSI compat** — Poco C40 uses MT6761 (MediaTek). Many GSIs don't boot on MTK. Build may succeed but ROM may not boot.
+- **PHH directory mismatch** — `build-rom.sh` runs from `result/` but `m otapackage` (line 82) runs from workspace root. No Android source tree there — likely no-op or error.
+- **GSI disk cleanup** — `build-lineageos-gsi.yml` removes Android SDK, .NET, GHC, Boost, Docker to free space. Even with cleanup, 14 GB runner may fail during `repo sync`.
 
 ## Editing Tips
 - YAML: 2-space indent throughout.
 - `workflow_dispatch` inputs are strings. Quote or interpolate carefully.
 - `repo` tool installed from Google storage — version not pinned.
 - Release tags use `${{ github.run_id }}` — numeric, auto-increment.
+- LineageOS uses `--git-lfs` in `repo init`; ArrowOS does not.
