@@ -1,13 +1,13 @@
-name: Build LineageOS 18.1 GSI
+name: Build AOSP GSI
 
 
 on:
   workflow_dispatch:
     inputs:
-      MANIFEST_BRANCH:
-        description: 'LineageOS branch'
+      AOSP_BRANCH:
+        description: 'AOSP manifest branch'
         required: true
-        default: 'lineage-18.1'
+        default: 'android-11.0.0_r48'
       ANDROID_VERSION:
         description: 'Android version for treble manifests'
         required: true
@@ -56,10 +56,10 @@ jobs:
       with:
         swap-size-gb: 12
 
-    - name: Repo init LineageOS
+    - name: Repo init AOSP
       run: |
-        repo init -u https://github.com/LineageOS/android.git \
-          -b ${{ github.event.inputs.MANIFEST_BRANCH }}
+        repo init -u https://android.googlesource.com/platform/manifest \
+          -b ${{ github.event.inputs.AOSP_BRANCH }}
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Add treble manifest
@@ -68,6 +68,25 @@ jobs:
           .repo/local_manifests \
           -b ${{ github.event.inputs.ANDROID_VERSION }}
         rm -f .repo/local_manifests/replace.xml
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
+    - name: Remove conflicting repos
+      run: |
+        cat > .repo/local_manifests/remove.xml << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <manifest>
+          <remove-project name="platform/packages/apps/Seedvault"/>
+          <remove-project name="platform/packages/apps/Seedvault/contactsbackup"/>
+          <remove-project name="platform/packages/apps/Seedvault/libs"/>
+          <remove-project name="platform/packages/apps/Seedvault/libs/koin-android"/>
+          <remove-project name="platform/packages/apps/Seedvault/storage/lib"/>
+          <remove-project name="platform/external/exfat"/>
+          <remove-project name="platform/external/exfatprogs"/>
+          <remove-project name="platform/external/exfatprogs/mkfs"/>
+          <remove-project name="platform/external/exfatprogs/fsck"/>
+          <remove-project name="platform/external/exfatprogs/label"/>
+        </manifest>
+        EOF
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Download and extract treble patches
@@ -123,12 +142,12 @@ jobs:
       with:
         files: |
           ${{ steps.pwd.outputs.workspace-folder }}/out/target/product/phh_treble/system.img.xz
-        name: LineageOS-18.1-GSI-${{ github.run_id }}
+        name: AOSP-GSI-${{ github.run_id }}
         tag_name: ${{ github.run_id }}
         body: |
-          # ROM: LineageOS 18.1 GSI
+          # ROM: AOSP GSI
           # Variant: ${{ github.event.inputs.CUSTOM_BUILD }}
-          # Branch: ${{ github.event.inputs.MANIFEST_BRANCH }}
-          # Target: Poco C40 (frost) - arm64 A/B
+          # AOSP Branch: ${{ github.event.inputs.AOSP_BRANCH }}
+          # Target: arm64 A/B
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

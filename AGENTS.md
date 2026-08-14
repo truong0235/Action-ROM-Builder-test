@@ -24,7 +24,6 @@ All: `workflow_dispatch` only, owner-only execution, 12 GB swap; ccache varies (
 - **MediaTek GSI compat** — Poco C40 uses MT6761 (MediaTek). Many GSIs don't boot on MTK. Build may succeed but ROM may not boot.
 - **PHH directory mismatch** — `build-rom.sh` runs from `result/` but `m otapackage` (line 82) runs from workspace root. No Android source tree there — likely no-op or error.
 - **GSI disk cleanup** — `build-lineageos-gsi.yml` removes Android SDK, .NET, GHC, Boost, Docker to free space. Even with cleanup, 14 GB runner may fail during `repo sync`.
-- **GSI PATH_OVERRIDE_SOONG** — `build-lineageos-gsi.yml` must `export PATH_OVERRIDE_SOONG=""` before `make`. The treble device config doesn't include `vendor/lineage/config/BoardConfigSoong.mk` which sets this variable. Without it, soong fails with `unknown variable '$(PATH_OVERRIDE_SOONG)'`.
 
 ## Editing Tips
 - YAML: 2-space indent throughout.
