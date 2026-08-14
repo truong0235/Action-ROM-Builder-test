@@ -109,6 +109,7 @@ jobs:
         . build/envsetup.sh
         export USE_CCACHE=1
         export CCACHE_DIR=$(pwd)/ccache/
+        export PATH_OVERRIDE_SOONG=""
         ccache -M 10G
         lunch treble_arm64_bvN-userdebug
         make WITHOUT_CHECK_API=true -j$(nproc) systemimage
