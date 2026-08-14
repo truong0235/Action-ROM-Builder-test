@@ -70,25 +70,6 @@ jobs:
         rm -f .repo/local_manifests/replace.xml
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Remove conflicting repos
-      run: |
-        cat > .repo/local_manifests/remove.xml << 'EOF'
-        <?xml version="1.0" encoding="UTF-8"?>
-        <manifest>
-          <remove-project name="platform/packages/apps/Seedvault"/>
-          <remove-project name="platform/packages/apps/Seedvault/contactsbackup"/>
-          <remove-project name="platform/packages/apps/Seedvault/libs"/>
-          <remove-project name="platform/packages/apps/Seedvault/libs/koin-android"/>
-          <remove-project name="platform/packages/apps/Seedvault/storage/lib"/>
-          <remove-project name="platform/external/exfat"/>
-          <remove-project name="platform/external/exfatprogs"/>
-          <remove-project name="platform/external/exfatprogs/mkfs"/>
-          <remove-project name="platform/external/exfatprogs/fsck"/>
-          <remove-project name="platform/external/exfatprogs/label"/>
-        </manifest>
-        EOF
-      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
-
     - name: Download and extract treble patches
       run: |
         wget -q https://github.com/TrebleDroid/treble_experimentations/releases/latest/download/patches-for-developers.zip
