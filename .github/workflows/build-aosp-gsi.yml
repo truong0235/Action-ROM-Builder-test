@@ -2,6 +2,8 @@ name: Build AOSP GSI
 
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       AOSP_BRANCH:
@@ -99,7 +101,7 @@ jobs:
     - name: Generate device config
       run: |
         cd device/phh/treble
-        bash generate.sh vendor/lineage/config/common_full_phone.mk
+        bash generate.sh
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Build system image
