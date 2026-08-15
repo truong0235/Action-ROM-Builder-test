@@ -74,7 +74,7 @@ jobs:
     - name: Repo init AOSP
       run: |
         repo init -u https://android.googlesource.com/platform/manifest \
-          -b ${{ env.AOSP_BRANCH }}
+          -b ${{ env.AOSP_BRANCH }} --depth=1
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Add treble manifest
@@ -111,6 +111,10 @@ jobs:
         done
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
+    - name: Free disk after sync
+      run: rm -rf .repo
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
     - name: Generate device config
       run: |
         cd device/phh/treble
@@ -120,11 +124,8 @@ jobs:
     - name: Build system image
       run: |
         . build/envsetup.sh
-        export USE_CCACHE=1
-        export CCACHE_DIR=$(pwd)/ccache/
-        ccache -M 10G
         lunch treble_arm64_bvN-userdebug
-        make WITHOUT_CHECK_API=true -j$(nproc) systemimage
+        make WITHOUT_CHECK_API=true -j1 systemimage
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Compress system image
