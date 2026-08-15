@@ -24,6 +24,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      AOSP_BRANCH: ${{ inputs.AOSP_BRANCH || 'android-11.0.0_r48' }}
+      ANDROID_VERSION: ${{ inputs.ANDROID_VERSION || 'android-11.0' }}
+      CUSTOM_BUILD: ${{ inputs.CUSTOM_BUILD || 'arm64-ab-vanilla-nosu' }}
     steps:
     - name: Free disk space
       run: |
@@ -61,14 +65,14 @@ jobs:
     - name: Repo init AOSP
       run: |
         repo init -u https://android.googlesource.com/platform/manifest \
-          -b ${{ github.event.inputs.AOSP_BRANCH }}
+          -b ${{ env.AOSP_BRANCH }}
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Add treble manifest
       run: |
         git clone https://github.com/TrebleDroid/treble_manifest \
           .repo/local_manifests \
-          -b ${{ github.event.inputs.ANDROID_VERSION }}
+          -b ${{ env.ANDROID_VERSION }}
         rm -f .repo/local_manifests/replace.xml
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
@@ -129,8 +133,8 @@ jobs:
         tag_name: ${{ github.run_id }}
         body: |
           # ROM: AOSP GSI
-          # Variant: ${{ github.event.inputs.CUSTOM_BUILD }}
-          # AOSP Branch: ${{ github.event.inputs.AOSP_BRANCH }}
+          # Variant: ${{ env.CUSTOM_BUILD }}
+          # AOSP Branch: ${{ env.AOSP_BRANCH }}
           # Target: arm64 A/B
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
