@@ -69,7 +69,7 @@ jobs:
     - name: Set Swap Space
       uses: pierotofy/set-swap-space@master
       with:
-        swap-size-gb: 12
+        swap-size-gb: 20
 
     - name: Repo init AOSP
       run: |
@@ -93,8 +93,16 @@ jobs:
 
     - name: Sync source
       run: |
+        SYNC_START=$(date +%s)
         repo sync -c --no-tags --no-clone-bundle \
           --force-sync -j$(nproc)
+        SYNC_END=$(date +%s)
+        SYNC_ELAPSED=$(( SYNC_END - SYNC_START ))
+        echo "Sync time: $(( SYNC_ELAPSED / 3600 ))h $(( SYNC_ELAPSED % 3600 / 60 ))m $(( SYNC_ELAPSED % 60 ))s"
+        echo "=== Disk after sync ==="
+        df -h /home/runner/work
+        echo "=== Source size ==="
+        du -sh .
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Apply patches
@@ -112,7 +120,13 @@ jobs:
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Free disk after sync
-      run: rm -rf .repo
+      run: |
+        echo "=== Disk before cleanup ==="
+        df -h /home/runner/work
+        du -sh .repo/
+        rm -rf .repo
+        echo "=== Disk after cleanup ==="
+        df -h /home/runner/work
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Generate device config
@@ -121,11 +135,50 @@ jobs:
         bash generate.sh
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
+    - name: Check resources before build
+      run: |
+        echo "=== Memory ==="
+        free -h
+        echo "=== Disk ==="
+        df -h /home/runner/work
+        echo "=== CPU ==="
+        nproc
+      working-directory: ${{ steps.pwd.outputs.workspace-folder }}
+
     - name: Build system image
       run: |
+        # Start background monitor: logs every 60s
+        (
+          while true; do
+            echo "$(date +%H:%M:%S) | MEM: $(free -h | awk '/Mem/{print $3"/"$2}') | SWAP: $(free -h | awk '/Swap/{print $3"/"$2}') | DISK: $(df -h /home/runner/work | awk 'NR==2{print $3"/"$2}') | PROCS: $(ps aux | grep -E 'ninja|clang|java' | grep -v grep | wc -l)"
+            sleep 60
+          done
+        ) > /tmp/monitor.log 2>&1 &
+        MONITOR_PID=$!
+
         . build/envsetup.sh
         lunch treble_arm64_bvN-userdebug
-        make WITHOUT_CHECK_API=true -j1 systemimage
+
+        BUILD_START=$(date +%s)
+        echo "::group::Build started at $(date)"
+        make WITHOUT_CHECK_API=true -j2 systemimage 2>&1 | tee /tmp/build.log
+        BUILD_EXIT=$?
+        BUILD_END=$(date +%s)
+        BUILD_ELAPSED=$(( BUILD_END - BUILD_START ))
+
+        kill $MONITOR_PID 2>/dev/null || true
+
+        echo "::endgroup::"
+        echo "Build exit code: $BUILD_EXIT"
+        echo "Build time: $(( BUILD_ELAPSED / 3600 ))h $(( BUILD_ELAPSED % 3600 / 60 ))m $(( BUILD_ELAPSED % 60 ))s"
+        echo "::group::Resource usage during build"
+        cat /tmp/monitor.log
+        echo "::endgroup::"
+        echo "::group::Last 50 lines of build log"
+        tail -50 /tmp/build.log
+        echo "::endgroup::"
+
+        exit $BUILD_EXIT
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Compress system image
