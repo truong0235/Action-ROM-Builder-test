@@ -45,9 +45,16 @@ jobs:
 
     - name: Install dependencies
       run: |
-        sudo apt install git aria2 ccache -y
+        sudo apt install -y git aria2 ccache \
+          bc bison flex gperf lib32z1-dev libc6-dev-i386 \
+          libxml2-utils xsltproc fontconfig liblz4-tool lzop \
+          squashfs-tools schedtool libreadline-dev lib32readline-dev \
+          pngcrush imagemagick python3-all-dev
+
         wget -q http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.3-2_amd64.deb
-        sudo dpkg -i libtinfo5_6.3-2_amd64.deb
+        wget -q http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libncurses5_6.3-2_amd64.deb
+        sudo dpkg -i libtinfo5_6.3-2_amd64.deb libncurses5_6.3-2_amd64.deb
+
         sudo curl --create-dirs -L -o /usr/local/bin/repo \
           https://storage.googleapis.com/git-repo-downloads/repo
         sudo chmod a+rx /usr/local/bin/repo
