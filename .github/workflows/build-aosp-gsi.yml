@@ -46,6 +46,8 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt install git aria2 ccache -y
+        wget -q http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.3-2_amd64.deb
+        sudo dpkg -i libtinfo5_6.3-2_amd64.deb
         sudo curl --create-dirs -L -o /usr/local/bin/repo \
           https://storage.googleapis.com/git-repo-downloads/repo
         sudo chmod a+rx /usr/local/bin/repo
