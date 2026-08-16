@@ -45,7 +45,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        sudo apt install -y git aria2 ccache \
+        sudo apt install -y git aria2 \
           bc bison flex gperf lib32z1-dev libc6-dev-i386 \
           libxml2-utils xsltproc fontconfig liblz4-tool lzop \
           squashfs-tools schedtool libreadline-dev lib32readline-dev \
@@ -69,7 +69,7 @@ jobs:
     - name: Set Swap Space
       uses: pierotofy/set-swap-space@master
       with:
-        swap-size-gb: 10
+        swap-size-gb: 2
 
     - name: Repo init AOSP
       run: |
@@ -161,7 +161,7 @@ jobs:
 
         BUILD_START=$(date +%s)
         echo "::group::Build started at $(date)"
-        make WITHOUT_CHECK_API=true -j4 systemimage 2>&1 | tee /tmp/build.log
+        make WITHOUT_CHECK_API=true -j$(nproc) systemimage 2>&1 | tee /tmp/build.log
         BUILD_EXIT=$?
         BUILD_END=$(date +%s)
         BUILD_ELAPSED=$(( BUILD_END - BUILD_START ))
@@ -181,10 +181,19 @@ jobs:
         exit $BUILD_EXIT
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
-    - name: Compress system image
+    - name: Free disk and compress
       run: |
-        xz -9 -T0 -v -z \
-          out/target/product/phh_treble/system.img
+        echo "=== Disk before cleanup ==="
+        df -h /home/runner/work
+        echo "=== Cleaning symbols and host tools ==="
+        rm -rf out/target/product/*/symbols
+        rm -rf out/host
+        echo "=== Disk after cleanup ==="
+        df -h /home/runner/work
+        echo "=== Compressing system image ==="
+        xz -9 -T0 -v -z out/target/product/phh_treble/system.img
+        echo "=== Final disk usage ==="
+        df -h /home/runner/work
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Upload to Release
